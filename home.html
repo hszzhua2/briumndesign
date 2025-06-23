@@ -1,1 +1,110 @@
-<h5>hi there!</h5>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>医疗建筑设计</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    body {
+      padding-top: 56px;
+    }
+    .banner {
+      background: url('https://images.unsplash.com/photo-1588776814546-5e2f3b7d9a5f?auto=format&fit=crop&w=1350&q=80') no-repeat center center;
+      background-size: cover;
+      height: 400px;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-shadow: 0 0 10px rgba(0,0,0,0.7);
+    }
+  </style>
+</head>
+<body>
+  <!-- 导航栏 -->
+  <nav class="navbar navbar-expand-md navbar-dark bg-primary fixed-top">
+    <div class="container">
+      <a class="navbar-brand" href="#">医疗建筑设计</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav"
+        aria-expanded="false" aria-label="切换导航">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link active" href="#">首页</a></li>
+          <li class="nav-item"><a class="nav-link" href="#services">服务</a></li>
+          <li class="nav-item"><a class="nav-link" href="#contact">联系我们</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- 首页横幅 -->
+  <section class="banner">
+    <div class="text-center">
+      <h1>专业医疗建筑设计</h1>
+      <p>打造安全、高效、现代化的医疗空间</p>
+    </div>
+  </section>
+
+  <!-- 服务介绍 -->
+  <section id="services" class="container my-5">
+    <h2 class="mb-4 text-center">我们的服务</h2>
+    <div class="row g-4">
+      <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">医院规划设计</h5>
+            <p class="card-text">根据医疗需求，科学规划医院布局，提升医疗效率与患者体验。</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">手术室设计</h5>
+            <p class="card-text">符合国际标准的手术室设计，保障手术安全与无菌环境。</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">医疗设备布局</h5>
+            <p class="card-text">合理布局医疗设备，优化空间利用，提高医疗工作效率。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 联系我们 -->
+  <section id="contact" class="bg-light py-5">
+    <div class="container">
+      <h2 class="mb-4 text-center">联系我们</h2>
+      <form>
+        <div class="mb-3">
+          <label for="name" class="form-label">姓名</label>
+          <input type="text" class="form-control" id="name" placeholder="请输入您的姓名" required />
+        </div>
+        <div class="mb-3">
+          <label for="email" class="form-label">邮箱</label>
+          <input type="email" class="form-control" id="email" placeholder="请输入您的邮箱" required />
+        </div>
+        <div class="mb-3">
+          <label for="message" class="form-label">留言</label>
+          <textarea class="form-control" id="message" rows="4" placeholder="请输入您的留言" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">发送</button>
+      </form>
+    </div>
+  </section>
+
+  <footer class="text-center py-3 bg-primary text-white">
+    &copy; 2025 医疗建筑设计公司 版权所有
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
