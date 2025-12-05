@@ -1,2 +1,950 @@
-<h5>please wait...</h5>
-<meta http-equiv="refresh" content="0;url=home.html">
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>医院功能规划与建筑面积自动计算器</title>
+  <!-- Tailwind CSS v3 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome -->
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <!-- SheetJS (xlsx) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  
+  <!-- Tailwind 配置 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#0056b3', // 深蓝色
+            secondary: '#10b981', // 绿色
+            accent: '#f97316', // 橙色
+            neutral: '#f3f4f6', // 浅灰色
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .transition-all {
+        transition-property: all;
+        transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+        transition-duration: 150ms;
+      }
+      .shadow-hover:hover {
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      }
+      .bg-gradient-blue {
+        background: linear-gradient(135deg, #0056b3 0%, #0077cc 100%);
+      }
+      .text-shadow {
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .card-hover {
+        transition: all 0.3s ease;
+      }
+      .card-hover:hover {
+        transform: translateY(-5px);
+      }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div class="p-4 md:p-6 max-w-7xl mx-auto">
+    <!-- 顶部导航栏 -->
+    <header class="mb-6 bg-gradient-blue rounded-lg shadow-lg p-4 text-white">
+      <div class="flex flex-col md:flex-row justify-between items-center">
+        <div>
+          <h1 class="text-2xl md:text-3xl font-bold text-shadow">医院功能规划与建筑面积自动计算器</h1>
+          <p class="text-sm text-blue-100 mt-1">基于专利说明的自动化方法，提供精准的医院规划计算</p>
+        </div>
+        <div class="mt-4 md:mt-0">
+          <span class="bg-white bg-opacity-20 px-3 py-1 rounded-full text-sm">
+            <i class="fa fa-hospital-o mr-1"></i>医院规划工具
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <section class="col-span-1 lg:col-span-2">
+        <!-- 医院基本信息 -->
+        <div class="bg-white p-4 rounded-lg shadow transition-all shadow-hover card-hover">
+          <h2 class="font-semibold text-gray-700 flex items-center border-b pb-2 mb-4">
+            <i class="fa fa-hospital-o mr-2 text-primary"></i>医院基本信息
+          </h2>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="form-group">
+              <label class="block text-sm font-medium text-gray-600 mb-1">医院性质</label>
+              <select id="hospitalType" onchange="updateLevels()" class="w-full border p-2 rounded focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                <option value="General">综合医院</option>
+                <option value="TCM">中医医院</option>
+                <option value="Special">专科医院</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="block text-sm font-medium text-gray-600 mb-1">等级/细分</label>
+              <select id="hospitalLevel" class="w-full border p-2 rounded focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                <!-- 动态生成选项 -->
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="block text-sm font-medium text-gray-600 mb-1">总床位数 (张)</label>
+              <input type="number" id="totalBeds" value="500" min="20" class="w-full border p-2 rounded focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+            </div>
+          </div>
+        </div>
+
+        <!-- 全局参数设置 -->
+        <div class="bg-white p-4 rounded-lg shadow mt-4 transition-all shadow-hover card-hover">
+          <div class="flex justify-between items-center border-b pb-2 mb-4">
+            <h2 class="font-semibold text-gray-700 flex items-center">
+              <i class="fa fa-sliders mr-2 text-primary"></i>全局参数（Inputs）
+            </h2>
+            <button id="resetDefaults" class="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-all text-sm">
+              <i class="fa fa-refresh mr-1"></i>重置默认值
+            </button>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <label class="flex flex-col">
+              <span class="text-sm font-medium text-gray-600">DiagnosisBedRatio (诊断床位比)</span>
+              <input type="number" id="DiagnosisBedRatio" value="3.0" step="0.1" class="border p-2 rounded focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
+            </label>
+            <label class="flex flex-col">
+              <span class="text-sm font-medium text-gray-600">NonWardBedsRatio (非病房床位比)</span>
+              <input type="number" id="NonWardBedsRatio" value="0.05" step="0.01" class="border p-2 rounded focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
+            </label>
+            <label class="flex flex-col">
+              <span class="text-sm font-medium text-gray-600">BedsPerWard (每病房床位数)</span>
+              <input type="number" id="BedsPerWard" value="2" class="border p-2 rounded focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
+            </label>
+            <label class="flex flex-col">
+              <span class="text-sm font-medium text-gray-600">OutpatientCheckRatio (门诊检查比例)</span>
+              <input type="number" id="OutpatientCheckRatio" value="0.15" step="0.01" class="border p-2 rounded focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
+            </label>
+            <label class="flex flex-col">
+              <span class="text-sm font-medium text-gray-600">AvgDailyChecks_PerDevice_Out (每设备日均门诊检查数)</span>
+              <input type="number" id="AvgDailyChecks_PerDevice_Out" value="20" class="border p-2 rounded focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
+            </label>
+            <label class="flex flex-col">
+              <span class="text-sm font-medium text-gray-600">InpatientCheckRatio (住院检查比例)</span>
+              <input type="number" id="InpatientCheckRatio" value="0.05" step="0.01" class="border p-2 rounded focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
+            </label>
+            <label class="flex flex-col">
+              <span class="text-sm font-medium text-gray-600">AvgDailyChecks_PerDevice_In (每设备日均住院检查数)</span>
+              <input type="number" id="AvgDailyChecks_PerDevice_In" value="10" class="border p-2 rounded focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
+            </label>
+            <label class="flex flex-col">
+              <span class="text-sm font-medium text-gray-600">OR_BedsPerOR (每手术室对应床位数)</span>
+              <input type="number" id="OR_BedsPerOR" value="50" class="border p-2 rounded focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
+            </label>
+            <label class="flex flex-col">
+              <span class="text-sm font-medium text-gray-600">TrafficCoeff_Default (默认交通系数)</span>
+              <input type="number" id="TrafficCoeff_Default" value="0.20" step="0.01" class="border p-2 rounded focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
+            </label>
+            <label class="flex flex-col">
+              <span class="text-sm font-medium text-gray-600">WallCoeff_Default (默认墙体系数)</span>
+              <input type="number" id="WallCoeff_Default" value="0.10" step="0.01" class="border p-2 rounded focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
+            </label>
+            <label class="flex flex-col">
+              <span class="text-sm font-medium text-gray-600">AuxRoomDefaultArea (辅助房间默认面积)</span>
+              <input type="number" id="AuxRoomDefaultArea" value="10" class="border p-2 rounded focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
+            </label>
+            <label class="flex flex-col">
+              <span class="text-sm font-medium text-gray-600">PublicCoeff (公共交通系数)</span>
+              <input type="number" id="PublicCoeff" value="0.30" step="0.01" class="border p-2 rounded focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
+            </label>
+          </div>
+        </div>
+
+        <!-- 科室配置 -->
+        <div class="bg-white p-4 rounded-lg shadow mt-4 transition-all shadow-hover card-hover">
+          <div class="flex justify-between items-center border-b pb-2 mb-4">
+            <h2 class="font-semibold text-gray-700 flex items-center">
+              <i class="fa fa-list-alt mr-2 text-primary"></i>科室配置（Config）
+            </h2>
+            <div>
+              <button id="addDept" class="px-3 py-1 bg-secondary text-white rounded hover:bg-green-700 transition-all mr-2">
+                <i class="fa fa-plus mr-1"></i>添加科室
+              </button>
+              <button id="adjustExample" class="px-3 py-1 bg-accent text-white rounded hover:bg-orange-600 transition-all">
+                <i class="fa fa-sliders mr-1"></i>示例调整
+              </button>
+            </div>
+          </div>
+
+          <!-- 科室分类配置 -->
+          <div class="mb-4">
+            <h3 class="text-sm font-medium text-gray-600 mb-2">科室分类选择</h3>
+            <div id="deptCategoryConfig" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- 科室分类将通过JavaScript动态生成 -->
+            </div>
+          </div>
+
+          <!-- 科室详细配置表格 -->
+          <div class="overflow-x-auto mt-4">
+            <table class="w-full table-auto text-sm">
+              <thead>
+                <tr class="text-left bg-gray-100">
+                  <th class="p-2">代码</th>
+                  <th class="p-2">科室</th>
+                  <th class="p-2">Hi<br><span class="text-xs text-gray-500">门诊份额</span></th>
+                  <th class="p-2">Ii<br><span class="text-xs text-gray-500">诊室日容量</span></th>
+                  <th class="p-2">诊室㎡</th>
+                  <th class="p-2">每床㎡</th>
+                  <th class="p-2">设备%</th>
+                  <th class="p-2">辅助数</th>
+                  <th class="p-2">Y1<br><span class="text-xs text-gray-500">交通系数</span></th>
+                  <th class="p-2">Y2<br><span class="text-xs text-gray-500">墙体系数</span></th>
+                  <th class="p-2">操作</th>
+                </tr>
+              </thead>
+              <tbody id="deptTableBody">
+                <!-- 科室数据将通过JavaScript动态生成 -->
+              </tbody>
+            </table>
+          </div>
+
+          <div class="mt-4 flex gap-2">
+            <button id="calculateBtn" class="px-4 py-2 bg-primary text-white rounded hover:bg-blue-700 transition-all flex items-center">
+              <i class="fa fa-calculator mr-2"></i>计算
+            </button>
+            <button id="exportExcelBtn" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-all flex items-center">
+              <i class="fa fa-file-excel-o mr-2"></i>导出 Excel
+            </button>
+          </div>
+        </div>
+
+        <!-- 计算结果 -->
+        <div class="bg-white p-4 rounded-lg shadow mt-4 transition-all shadow-hover card-hover">
+          <h2 class="font-semibold text-gray-700 flex items-center border-b pb-2 mb-4">
+            <i class="fa fa-bar-chart mr-2 text-primary"></i>计算结果（Calculations）
+          </h2>
+          <div id="resultsContainer" class="mt-3">
+            <div class="flex items-center justify-center h-32 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+              <p class="text-sm text-gray-500">尚未计算 — 点击"计算"按钮。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 右侧边栏 -->
+      <aside class="col-span-1">
+        <!-- 专利参考 -->
+        <div class="bg-white p-4 rounded-lg shadow mb-4 transition-all shadow-hover card-hover">
+          <h3 class="font-semibold text-gray-700 flex items-center border-b pb-2 mb-3">
+            <i class="fa fa-file-pdf-o mr-2 text-primary"></i>专利参考 PDF
+          </h3>
+          <p class="text-sm mt-2 text-gray-600">下方预览使用了你上传的专利文件（本地路径）。若你部署到服务器，请确保该文件可通过 web 可访问的 URL 替换。</p>
+          <div class="mt-3 h-64 overflow-auto border rounded">
+            <div id="pdfPlaceholder" class="w-full h-full flex items-center justify-center bg-gray-100 text-gray-500">
+              <div class="text-center">
+                <i class="fa fa-file-pdf-o text-4xl mb-2"></i>
+                <p>专利PDF预览区域</p>
+                <p class="text-xs mt-1">本地路径: /mnt/data/000000_20210723_0C_CN_0.pdf</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 快速说明 -->
+        <div class="bg-white p-4 rounded-lg shadow transition-all shadow-hover card-hover">
+          <h3 class="font-semibold text-gray-700 flex items-center border-b pb-2 mb-3">
+            <i class="fa fa-info-circle mr-2 text-primary"></i>快速说明
+          </h3>
+          <ol class="text-sm list-decimal list-inside mt-2 text-gray-600">
+            <li class="mb-1">选择医院性质、等级和总床位数。</li>
+            <li class="mb-1">调整全局参数或使用默认值。</li>
+            <li class="mb-1">选择需要的科室分类和具体科室。</li>
+            <li class="mb-1">点击计算以获得每科室的诊室数、病房数、面积等。</li>
+            <li class="mb-1">导出 Excel 用于进一步报告或导入 BIM。</li>
+          </ol>
+
+          <div class="mt-3">
+            <button id="deploymentBtn" class="px-3 py-2 bg-gray-700 text-white rounded hover:bg-gray-800 transition-all flex items-center w-full">
+              <i class="fa fa-server mr-2"></i>部署说明
+            </button>
+          </div>
+
+          <!-- 公式说明 -->
+          <div class="mt-4">
+            <h4 class="font-medium text-gray-700 mb-2">关键计算公式</h4>
+            <div class="bg-gray-50 p-2 rounded text-xs text-gray-600">
+              <p class="mb-1"><strong>总日门诊量：</strong>B = G × A</p>
+              <p class="mb-1"><strong>科室门诊量：</strong>DeptDailyOutpatient = B × Hi</p>
+              <p class="mb-1"><strong>科室诊室数：</strong>Di = DeptDailyOutpatient / Ii</p>
+              <p><strong>科室总面积：</strong>DeptTotalArea = DeptNetArea × (1 + Y1 + Y2)</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 系数说明 -->
+        <div class="bg-white p-4 rounded-lg shadow mt-4 transition-all shadow-hover card-hover">
+          <h3 class="font-semibold text-gray-700 flex items-center border-b pb-2 mb-3">
+            <i class="fa fa-book mr-2 text-primary"></i>系数说明
+          </h3>
+          <div class="text-sm text-gray-600 space-y-2">
+            <div class="flex items-start">
+              <span class="bg-blue-100 text-blue-800 font-medium px-2 py-0.5 rounded mr-2 mt-0.5">Y1</span>
+              <span>科室交通系数：考虑科室内部走廊、电梯等交通空间</span>
+            </div>
+            <div class="flex items-start">
+              <span class="bg-green-100 text-green-800 font-medium px-2 py-0.5 rounded mr-2 mt-0.5">Y2</span>
+              <span>墙体系数：考虑墙体厚度占用的面积</span>
+            </div>
+            <div class="flex items-start">
+              <span class="bg-purple-100 text-purple-800 font-medium px-2 py-0.5 rounded mr-2 mt-0.5">Y3</span>
+              <span>公共交通系数：考虑医院公共走廊、电梯等空间</span>
+            </div>
+            <div class="flex items-start">
+              <span class="bg-orange-100 text-orange-800 font-medium px-2 py-0.5 rounded mr-2 mt-0.5">Y4</span>
+              <span>外墙系数：考虑建筑外墙厚度占用的面积</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- 部署说明模态框 -->
+    <div id="deploymentModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+      <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4 transform transition-all duration-300 scale-95 opacity-0" id="modalContent">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-semibold text-gray-800">部署说明</h3>
+          <button id="closeModal" class="text-gray-500 hover:text-gray-700">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
+        <div class="text-sm text-gray-600">
+          <p class="mb-2">这是一个纯前端应用，无需后端服务器。部署方式有以下几种：</p>
+          <ol class="list-decimal list-inside mb-4">
+            <li class="mb-1">将所有文件上传到任何支持静态文件的Web服务器</li>
+            <li class="mb-1">使用GitHub Pages、Netlify等静态网站托管服务</li>
+            <li class="mb-1">在本地直接打开HTML文件使用（部分功能可能受限）</li>
+          </ol>
+          <p class="mb-2">注意事项：</p>
+          <ul class="list-disc list-inside">
+            <li class="mb-1">确保专利PDF文件路径正确，或替换为可访问的URL</li>
+            <li class="mb-1">Excel导出功能需要浏览器支持文件下载</li>
+          </ul>
+        </div>
+        <div class="mt-4 flex justify-end">
+          <button id="confirmModal" class="px-4 py-2 bg-primary text-white rounded hover:bg-blue-700 transition-all">
+            我知道了
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 全局变量
+    let config = [
+      { DeptCode: 'A1', Department: '急诊', OutpatientShare_Hi: 0.10, DiagRoomDailyCapacity_Ii: 40, DiagRoomArea_m2: 15, WardBedArea_m2: 30, EquipShare: 0.10, AuxRoomsCount: 1, TrafficCoeff_Y1k: 0.20, WallCoeff_Y2k: 0.10, category: '门诊区' },
+      { DeptCode: 'A2', Department: '内科', OutpatientShare_Hi: 0.15, DiagRoomDailyCapacity_Ii: 30, DiagRoomArea_m2: 12, WardBedArea_m2: 30, EquipShare: 0.10, AuxRoomsCount: 1, TrafficCoeff_Y1k: 0.20, WallCoeff_Y2k: 0.10, category: '门诊区' },
+      { DeptCode: 'A3', Department: '外科', OutpatientShare_Hi: 0.12, DiagRoomDailyCapacity_Ii: 28, DiagRoomArea_m2: 12, WardBedArea_m2: 30, EquipShare: 0.12, AuxRoomsCount: 1, TrafficCoeff_Y1k: 0.20, WallCoeff_Y2k: 0.10, category: '门诊区' },
+      { DeptCode: 'A4', Department: '儿科', OutpatientShare_Hi: 0.08, DiagRoomDailyCapacity_Ii: 25, DiagRoomArea_m2: 12, WardBedArea_m2: 25, EquipShare: 0.08, AuxRoomsCount: 1, TrafficCoeff_Y1k: 0.20, WallCoeff_Y2k: 0.10, category: '门诊区' },
+      { DeptCode: 'A5', Department: '妇产科', OutpatientShare_Hi: 0.07, DiagRoomDailyCapacity_Ii: 20, DiagRoomArea_m2: 14, WardBedArea_m2: 32, EquipShare: 0.06, AuxRoomsCount: 1, TrafficCoeff_Y1k: 0.20, WallCoeff_Y2k: 0.10, category: '门诊区' },
+      { DeptCode: 'B1', Department: '检验科', OutpatientShare_Hi: 0.05, DiagRoomDailyCapacity_Ii: 30, DiagRoomArea_m2: 15, WardBedArea_m2: 20, EquipShare: 0.15, AuxRoomsCount: 2, TrafficCoeff_Y1k: 0.20, WallCoeff_Y2k: 0.10, category: '医技部' },
+      { DeptCode: 'B2', Department: '放射科', OutpatientShare_Hi: 0.05, DiagRoomDailyCapacity_Ii: 25, DiagRoomArea_m2: 20, WardBedArea_m2: 20, EquipShare: 0.18, AuxRoomsCount: 2, TrafficCoeff_Y1k: 0.20, WallCoeff_Y2k: 0.10, category: '医技部' },
+      { DeptCode: 'B3', Department: '手术部', OutpatientShare_Hi: 0.03, DiagRoomDailyCapacity_Ii: 10, DiagRoomArea_m2: 15, WardBedArea_m2: 25, EquipShare: 0.12, AuxRoomsCount: 3, TrafficCoeff_Y1k: 0.20, WallCoeff_Y2k: 0.10, category: '医技部' },
+      { DeptCode: 'C1', Department: '普通病房', OutpatientShare_Hi: 0.0, DiagRoomDailyCapacity_Ii: 0, DiagRoomArea_m2: 0, WardBedArea_m2: 30, EquipShare: 0.05, AuxRoomsCount: 2, TrafficCoeff_Y1k: 0.20, WallCoeff_Y2k: 0.10, category: '病房区' },
+      { DeptCode: 'C2', Department: 'ICU', OutpatientShare_Hi: 0.0, DiagRoomDailyCapacity_Ii: 0, DiagRoomArea_m2: 0, WardBedArea_m2: 40, EquipShare: 0.08, AuxRoomsCount: 3, TrafficCoeff_Y1k: 0.20, WallCoeff_Y2k: 0.10, category: '病房区' },
+      { DeptCode: 'D1', Department: '行政办公', OutpatientShare_Hi: 0.0, DiagRoomDailyCapacity_Ii: 0, DiagRoomArea_m2: 0, WardBedArea_m2: 0, EquipShare: 0.02, AuxRoomsCount: 5, TrafficCoeff_Y1k: 0.15, WallCoeff_Y2k: 0.10, category: '后勤与行政' },
+      { DeptCode: 'D2', Department: '营养厨房', OutpatientShare_Hi: 0.0, DiagRoomDailyCapacity_Ii: 0, DiagRoomArea_m2: 0, WardBedArea_m2: 0, EquipShare: 0.01, AuxRoomsCount: 4, TrafficCoeff_Y1k: 0.15, WallCoeff_Y2k: 0.10, category: '后勤与行政' },
+    ];
+    
+    let results = null;
+
+    // 科室数据库 - 用于分类展示
+    const DEPT_DATABASE = {
+        "门诊区": [
+            { id: "OP_Internal", name: "内科门诊", type: "outpatient", share: 0.25 },
+            { id: "OP_Surgery", name: "外科门诊", type: "outpatient", share: 0.20 },
+            { id: "OP_Pediatrics", name: "儿科门诊", type: "outpatient", share: 0.10 },
+            { id: "OP_ObGyn", name: "妇产科门诊", type: "outpatient", share: 0.10 },
+            { id: "OP_Emergency", name: "急诊科", type: "outpatient", share: 0.15 },
+            { id: "OP_Eye", name: "眼科", type: "outpatient", share: 0.05 },
+            { id: "OP_ENT", name: "耳鼻喉科", type: "outpatient", share: 0.05 },
+            { id: "OP_Dental", name: "口腔科", type: "outpatient", share: 0.05 },
+            { id: "OP_Dermatology", name: "皮肤科", type: "outpatient", share: 0.05 }
+        ],
+        "医技部": [
+            { id: "MT_Pharmacy", name: "药学部", type: "tech_formula" },
+            { id: "MT_Lab", name: "检验科", type: "tech_formula" },
+            { id: "MT_Radiology", name: "放射影像科", type: "tech_device" },
+            { id: "MT_Surgery", name: "手术部", type: "tech_surgery" },
+            { id: "MT_Pathology", name: "病理科", type: "tech_formula" },
+            { id: "MT_Supply", name: "消毒供应中心", type: "tech_formula" }
+        ],
+        "病房区": [
+            { id: "IP_Standard", name: "标准病房", type: "inpatient_ward" },
+            { id: "IP_ICU", name: "重症监护(ICU)", type: "inpatient_icu" }
+        ],
+        "后勤与行政": [
+            { id: "LOG_Admin", name: "行政办公", type: "basic", area_per_bed: 1.5 },
+            { id: "LOG_Kitchen", name: "营养厨房", type: "basic", area_per_bed: 1.2 }
+        ]
+    };
+
+    // 系数常量 
+    const CONSTANTS = {
+        ratio_bed_to_visit: 3.0, // 诊床比 
+        doc_work_hours: 7, // 医生工作时长 
+        patients_per_hour: 4, // 每小时问诊数 (15分钟/人) 
+        
+        // 面积系数
+        coeff_dept_traffic: 0.35, // 科室交通 Y1 
+        coeff_dept_wall: 0.10,    // 科室墙体 Y2 
+        coeff_public: 0.30,       // 公共交通 Y3 
+        coeff_outer_wall: 0.05,   // 外墙 Y4
+        
+        // 单间面积预设 (㎡)
+        area_consulting: 15,
+        area_ward_room: 35, // 3人间
+        area_icu_bed: 20,
+        area_surgery: 50
+    };
+
+    // 工具函数
+    const ceil = (v) => Math.ceil(v);
+    const round = (v) => Math.round(v);
+
+    // 获取输入值
+    function getInputValue(id) {
+      return Number(document.getElementById(id).value);
+    }
+
+    // 更新科室配置行
+    function updateConfigRow(index, key, value) {
+      // 尝试数值转换
+      const numericKeys = ['OutpatientShare_Hi', 'DiagRoomDailyCapacity_Ii', 'DiagRoomArea_m2', 'WardBedArea_m2', 'EquipShare', 'AuxRoomsCount', 'TrafficCoeff_Y1k', 'WallCoeff_Y2k'];
+      config[index][key] = numericKeys.includes(key) ? Number(value) : value;
+      renderDeptTable();
+    }
+
+    // 添加科室
+    function addDept() {
+      const categories = Object.keys(DEPT_DATABASE);
+      const defaultCategory = categories[0]; // 默认使用第一个分类
+      
+      config.push({ 
+        DeptCode: `D${config.length+1}`, 
+        Department: '新科室', 
+        OutpatientShare_Hi: 0.02, 
+        DiagRoomDailyCapacity_Ii: 30, 
+        DiagRoomArea_m2: 12, 
+        WardBedArea_m2: 25, 
+        EquipShare: 0.02, 
+        AuxRoomsCount: 1, 
+        TrafficCoeff_Y1k: getInputValue('TrafficCoeff_Default'), 
+        WallCoeff_Y2k: getInputValue('WallCoeff_Default'),
+        category: defaultCategory
+      });
+      renderDeptTable();
+    }
+
+    // 删除科室
+    function removeDept(i) {
+      if (config.length > 1) {
+        config.splice(i, 1);
+        renderDeptTable();
+      } else {
+        alert('至少需要保留一个科室');
+      }
+    }
+
+    // 渲染科室表格
+    function renderDeptTable() {
+      const tableBody = document.getElementById('deptTableBody');
+      tableBody.innerHTML = '';
+      
+      config.forEach((row, i) => {
+        const tr = document.createElement('tr');
+        tr.className = i % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+        tr.innerHTML = `
+          <td class="p-2"><input value="${row.DeptCode}" onchange="updateConfigRow(${i}, 'DeptCode', this.value)" class="border p-1 rounded w-20 text-sm" /></td>
+          <td class="p-2"><input value="${row.Department}" onchange="updateConfigRow(${i}, 'Department', this.value)" class="border p-1 rounded w-24 text-sm" /></td>
+          <td class="p-2"><input type="number" step="0.01" value="${row.OutpatientShare_Hi}" onchange="updateConfigRow(${i}, 'OutpatientShare_Hi', this.value)" class="border p-1 rounded w-20 text-sm" /></td>
+          <td class="p-2"><input type="number" value="${row.DiagRoomDailyCapacity_Ii}" onchange="updateConfigRow(${i}, 'DiagRoomDailyCapacity_Ii', this.value)" class="border p-1 rounded w-20 text-sm" /></td>
+          <td class="p-2"><input type="number" value="${row.DiagRoomArea_m2}" onchange="updateConfigRow(${i}, 'DiagRoomArea_m2', this.value)" class="border p-1 rounded w-20 text-sm" /></td>
+          <td class="p-2"><input type="number" value="${row.WardBedArea_m2}" onchange="updateConfigRow(${i}, 'WardBedArea_m2', this.value)" class="border p-1 rounded w-20 text-sm" /></td>
+          <td class="p-2"><input type="number" step="0.01" value="${row.EquipShare}" onchange="updateConfigRow(${i}, 'EquipShare', this.value)" class="border p-1 rounded w-20 text-sm" /></td>
+          <td class="p-2"><input type="number" value="${row.AuxRoomsCount}" onchange="updateConfigRow(${i}, 'AuxRoomsCount', this.value)" class="border p-1 rounded w-16 text-sm" /></td>
+          <td class="p-2"><input type="number" step="0.01" value="${row.TrafficCoeff_Y1k}" onchange="updateConfigRow(${i}, 'TrafficCoeff_Y1k', this.value)" class="border p-1 rounded w-16 text-sm" /></td>
+          <td class="p-2"><input type="number" step="0.01" value="${row.WallCoeff_Y2k}" onchange="updateConfigRow(${i}, 'WallCoeff_Y2k', this.value)" class="border p-1 rounded w-16 text-sm" /></td>
+          <td class="p-2"><button onclick="removeDept(${i})" class="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition-all">删除</button></td>
+        `;
+        tableBody.appendChild(tr);
+      });
+    }
+
+    // 渲染科室分类配置
+    function renderDeptCategoryConfig() {
+      const container = document.getElementById('deptCategoryConfig');
+      container.innerHTML = '';
+      
+      // 获取医院类型和等级
+      const type = document.getElementById('hospitalType').value;
+      const level = document.getElementById('hospitalLevel').value;
+      
+      // 遍历科室分类
+      for (const [category, depts] of Object.entries(DEPT_DATABASE)) {
+        // 创建分类标题
+        const categoryDiv = document.createElement('div');
+        categoryDiv.className = 'mb-3';
+        
+        const categoryTitle = document.createElement('div');
+        categoryTitle.className = 'flex items-center mb-2';
+        categoryTitle.innerHTML = `
+          <input type="checkbox" id="category-${category}" class="mr-2" checked onchange="toggleCategory('${category}', this.checked)">
+          <label for="category-${category}" class="font-medium text-gray-700">${category}</label>
+        `;
+        categoryDiv.appendChild(categoryTitle);
+        
+        // 创建科室列表
+        const deptList = document.createElement('div');
+        deptList.className = 'ml-6 space-y-1';
+        
+        depts.forEach(dept => {
+          // 简单的过滤逻辑：如果是妇儿医院，去掉无关科室
+          if (level === "妇儿医院" && (dept.name.includes("肿瘤") || dept.name.includes("老年"))) return;
+          
+          const deptItem = document.createElement('div');
+          deptItem.className = 'flex items-center';
+          deptItem.innerHTML = `
+            <input type="checkbox" id="dept-${dept.id}" class="mr-2 dept-checkbox" data-category="${category}" checked onchange="toggleDepartment('${dept.id}', this.checked)">
+            <label for="dept-${dept.id}" class="text-sm text-gray-600">${dept.name}</label>
+          `;
+          deptList.appendChild(deptItem);
+        });
+        
+        categoryDiv.appendChild(deptList);
+        container.appendChild(categoryDiv);
+      }
+    }
+
+    // 切换整个分类的选中状态
+    function toggleCategory(category, checked) {
+      const checkboxes = document.querySelectorAll(`.dept-checkbox[data-category="${category}"]`);
+      checkboxes.forEach(checkbox => {
+        checkbox.checked = checked;
+      });
+    }
+
+    // 切换单个科室的选中状态
+    function toggleDepartment(deptId, checked) {
+      // 这里可以实现根据科室ID添加或移除科室的逻辑
+      // 简化版本中，我们只更新UI状态
+    }
+
+    // 更新医院等级选项
+    function updateLevels() {
+      const type = document.getElementById('hospitalType').value;
+      const levelSelect = document.getElementById('hospitalLevel');
+      levelSelect.innerHTML = "";
+      
+      let options = [];
+      if (type === 'General') {
+        options = ["三级甲等", "三级乙等", "二级甲等", "二级综合"];
+      } else if (type === 'TCM') {
+        options = ["三级中医", "二级中医"];
+      } else {
+        options = ["肿瘤医院", "妇儿医院", "口腔医院"];
+      }
+      
+      options.forEach(opt => {
+        const el = document.createElement("option");
+        el.value = opt;
+        el.innerText = opt;
+        levelSelect.appendChild(el);
+      });
+      
+      // 重新渲染科室分类配置
+      renderDeptCategoryConfig();
+    }
+
+    // 计算功能
+    function calculate() {
+      // 获取输入参数
+      const TotalBeds = getInputValue('totalBeds');
+      const DiagnosisBedRatio = getInputValue('DiagnosisBedRatio');
+      const NonWardBedsRatio = getInputValue('NonWardBedsRatio');
+      const BedsPerWard = getInputValue('BedsPerWard');
+      const OutpatientCheckRatio = getInputValue('OutpatientCheckRatio');
+      const AvgDailyChecks_PerDevice_Out = getInputValue('AvgDailyChecks_PerDevice_Out');
+      const InpatientCheckRatio = getInputValue('InpatientCheckRatio');
+      const AvgDailyChecks_PerDevice_In = getInputValue('AvgDailyChecks_PerDevice_In');
+      const AuxRoomDefaultArea = getInputValue('AuxRoomDefaultArea');
+      const TrafficCoeff_Default = getInputValue('TrafficCoeff_Default');
+      const WallCoeff_Default = getInputValue('WallCoeff_Default');
+      const PublicCoeff = getInputValue('PublicCoeff');
+
+      // 预计算
+      const DailyOutpatient = DiagnosisBedRatio * TotalBeds; // B = G * A
+      const NonWardBeds = NonWardBedsRatio * TotalBeds;
+      const WardBedsTotal = TotalBeds - NonWardBeds;
+
+      // 总设备计算
+      const OutpatientChecks = DailyOutpatient * OutpatientCheckRatio;
+      const OutEquip = OutpatientChecks / AvgDailyChecks_PerDevice_Out;
+      const InpatientChecks = TotalBeds * InpatientCheckRatio;
+      const InEquip = InpatientChecks / AvgDailyChecks_PerDevice_In;
+      const TotalEquipment = ceil(OutEquip + InEquip);
+
+      // 各科室计算
+      const deptResults = config.map((dept) => {
+        const Hi = dept.OutpatientShare_Hi;
+        const Ii = dept.DiagRoomDailyCapacity_Ii || 1;
+        const diag_area = dept.DiagRoomArea_m2 || 12;
+        const ward_bed_area = dept.WardBedArea_m2 || 30;
+        const aux_rooms = dept.AuxRoomsCount || 0;
+        const y1 = (dept.TrafficCoeff_Y1k != null ? dept.TrafficCoeff_Y1k : TrafficCoeff_Default);
+        const y2 = (dept.WallCoeff_Y2k != null ? dept.WallCoeff_Y2k : WallCoeff_Default);
+
+        const DeptDailyOutpatient = DailyOutpatient * Hi;
+        const Di = ceil(DeptDailyOutpatient / Ii);
+
+        const WardBeds_Assigned = round(WardBedsTotal * Hi);
+        const WardRooms = ceil(WardBeds_Assigned / BedsPerWard);
+
+        const EquipRooms_Assigned = ceil(TotalEquipment * (dept.EquipShare || 0));
+
+        const DeptNetArea = Di * diag_area + WardRooms * ward_bed_area + aux_rooms * AuxRoomDefaultArea;
+        const DeptTotalArea = DeptNetArea * (1 + y1 + y2);
+
+        return {
+          DeptCode: dept.DeptCode,
+          Department: dept.Department,
+          category: dept.category || '其他',
+          DeptDailyOutpatient,
+          Di,
+          WardBeds_Assigned,
+          WardRooms,
+          EquipRooms_Assigned,
+          DeptNetArea,
+          DeptTotalArea,
+          TrafficCoeff: y1,
+          WallCoeff: y2,
+        };
+      });
+
+      // 按科室分类汇总
+      const categorySummary = {};
+      deptResults.forEach(dept => {
+        if (!categorySummary[dept.category]) {
+          categorySummary[dept.category] = {
+            totalNetArea: 0,
+            totalGrossArea: 0,
+            departments: []
+          };
+        }
+        categorySummary[dept.category].totalNetArea += dept.DeptNetArea;
+        categorySummary[dept.category].totalGrossArea += dept.DeptTotalArea;
+        categorySummary[dept.category].departments.push(dept);
+      });
+
+      const TotalNetArea = deptResults.reduce((s, d) => s + d.DeptNetArea, 0);
+      const TotalDeptGrossArea = deptResults.reduce((s, d) => s + d.DeptTotalArea, 0);
+      
+      // 计算最终建筑面积（包含公共交通和外墙）
+      const TotalBuildingArea = TotalDeptGrossArea * (1 + PublicCoeff + 0.05);
+
+      results = {
+        TotalBeds,
+        DailyOutpatient,
+        NonWardBeds,
+        WardBedsTotal,
+        TotalEquipment,
+        deptResults,
+        categorySummary,
+        TotalNetArea,
+        TotalDeptGrossArea,
+        TotalBuildingArea,
+      };
+
+      renderResults();
+      return results;
+    }
+
+    // 渲染计算结果
+    function renderResults() {
+      if (!results) return;
+
+      const container = document.getElementById('resultsContainer');
+      
+      // 计算结果摘要
+      let html = `
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div class="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
+            <p class="text-sm text-gray-600">总床位</p>
+            <p class="text-xl font-bold text-primary">${results.TotalBeds}</p>
+          </div>
+          <div class="bg-green-50 p-4 rounded-lg border-l-4 border-green-500">
+            <p class="text-sm text-gray-600">总日门诊 (B = G × A)</p>
+            <p class="text-xl font-bold text-green-600">${results.DailyOutpatient.toFixed(1)}</p>
+          </div>
+          <div class="bg-purple-50 p-4 rounded-lg border-l-4 border-purple-500">
+            <p class="text-sm text-gray-600">总设备房数</p>
+            <p class="text-xl font-bold text-purple-600">${results.TotalEquipment}</p>
+          </div>
+        </div>
+
+        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg mb-6">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <p class="text-sm text-gray-600">全院净面积</p>
+              <p class="text-xl font-bold text-primary">${results.TotalNetArea.toFixed(1)} ㎡</p>
+            </div>
+            <div>
+              <p class="text-sm text-gray-600">科室建筑面积</p>
+              <p class="text-xl font-bold text-indigo-600">${results.TotalDeptGrossArea.toFixed(1)} ㎡</p>
+            </div>
+            <div>
+              <p class="text-sm text-gray-600">最终总建筑面积</p>
+              <p class="text-xl font-bold text-indigo-800">${results.TotalBuildingArea.toFixed(1)} ㎡</p>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // 按科室分类展示结果
+      html += `<h3 class="font-semibold text-gray-700 mb-3">科室分类汇总</h3>`;
+      
+      for (const [category, summary] of Object.entries(results.categorySummary)) {
+        html += `
+          <div class="mb-4">
+            <div class="bg-gray-100 p-2 rounded-t-lg font-medium text-gray-700">${category}</div>
+            <div class="overflow-x-auto">
+              <table class="w-full table-auto text-sm border border-gray-200">
+                <thead>
+                  <tr class="text-left bg-gray-50">
+                    <th class="p-2 border-b">科室</th>
+                    <th class="p-2 border-b">日门诊</th>
+                    <th class="p-2 border-b">诊室数</th>
+                    <th class="p-2 border-b">病房数</th>
+                    <th class="p-2 border-b">设备房</th>
+                    <th class="p-2 border-b">净面积(㎡)</th>
+                    <th class="p-2 border-b">总面积(㎡)</th>
+                  </tr>
+                </thead>
+                <tbody>
+        `;
+
+        summary.departments.forEach((d, i) => {
+          html += `
+            <tr class="${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
+              <td class="p-2 border-b">${d.Department}</td>
+              <td class="p-2 border-b">${d.DeptDailyOutpatient.toFixed(1)}</td>
+              <td class="p-2 border-b">${d.Di}</td>
+              <td class="p-2 border-b">${d.WardRooms}</td>
+              <td class="p-2 border-b">${d.EquipRooms_Assigned}</td>
+              <td class="p-2 border-b">${d.DeptNetArea.toFixed(1)}</td>
+              <td class="p-2 border-b">${d.DeptTotalArea.toFixed(1)}</td>
+            </tr>
+          `;
+        });
+
+        html += `
+                </tbody>
+                <tfoot>
+                  <tr class="bg-blue-50 font-medium">
+                    <td class="p-2 border-t" colspan="5">${category}合计</td>
+                    <td class="p-2 border-t">${summary.totalNetArea.toFixed(1)}</td>
+                    <td class="p-2 border-t">${summary.totalGrossArea.toFixed(1)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        `;
+      }
+
+      // 总面积汇总
+      html += `
+        <div class="mt-6 bg-primary bg-opacity-10 p-4 rounded-lg border-l-4 border-primary">
+          <div class="text-lg font-semibold text-primary">医院建筑总面积: ${results.TotalBuildingArea.toFixed(1)} ㎡</div>
+          <div class="text-sm text-gray-600 mt-1">计算公式: 科室总面积 × (1 + 公共交通系数 + 外墙系数)</div>
+        </div>
+      `;
+
+      container.innerHTML = html;
+    }
+
+    // 导出Excel
+    function exportExcel() {
+      if (!results) calculate();
+      
+      const wb = XLSX.utils.book_new();
+
+      // Inputs sheet
+      const inputsData = [
+        { Key: 'TotalBeds', Value: getInputValue('totalBeds') },
+        { Key: 'DiagnosisBedRatio', Value: getInputValue('DiagnosisBedRatio') },
+        { Key: 'NonWardBedsRatio', Value: getInputValue('NonWardBedsRatio') },
+        { Key: 'BedsPerWard', Value: getInputValue('BedsPerWard') },
+        { Key: 'OutpatientCheckRatio', Value: getInputValue('OutpatientCheckRatio') },
+        { Key: 'AvgDailyChecks_PerDevice_Out', Value: getInputValue('AvgDailyChecks_PerDevice_Out') },
+        { Key: 'InpatientCheckRatio', Value: getInputValue('InpatientCheckRatio') },
+        { Key: 'AvgDailyChecks_PerDevice_In', Value: getInputValue('AvgDailyChecks_PerDevice_In') },
+        { Key: 'OR_BedsPerOR', Value: getInputValue('OR_BedsPerOR') },
+        { Key: 'TrafficCoeff_Default', Value: getInputValue('TrafficCoeff_Default') },
+        { Key: 'WallCoeff_Default', Value: getInputValue('WallCoeff_Default') },
+        { Key: 'AuxRoomDefaultArea', Value: getInputValue('AuxRoomDefaultArea') },
+        { Key: 'PublicCoeff', Value: getInputValue('PublicCoeff') },
+      ];
+      const wsInputs = XLSX.utils.json_to_sheet(inputsData);
+      XLSX.utils.book_append_sheet(wb, wsInputs, 'Inputs');
+
+      // Config sheet
+      const wsConfig = XLSX.utils.json_to_sheet(config);
+      XLSX.utils.book_append_sheet(wb, wsConfig, 'Config');
+
+      // Calculations sheet
+      const calcRows = results.deptResults.map(d => ({
+        DeptCode: d.DeptCode,
+        Department: d.Department,
+        Category: d.category,
+        DeptDailyOutpatient: d.DeptDailyOutpatient,
+        DiagRooms: d.Di,
+        WardBeds: d.WardBeds_Assigned,
+        WardRooms: d.WardRooms,
+        EquipRooms: d.EquipRooms_Assigned,
+        DeptNetArea: d.DeptNetArea,
+        DeptTotalArea: d.DeptTotalArea
+      }));
+      const wsCalc = XLSX.utils.json_to_sheet(calcRows);
+      XLSX.utils.book_append_sheet(wb, wsCalc, 'Calculations');
+
+      // Category Summary sheet
+      const categoryRows = Object.entries(results.categorySummary).map(([category, summary]) => ({
+        Category: category,
+        TotalNetArea: summary.totalNetArea,
+        TotalGrossArea: summary.totalGrossArea,
+        DepartmentCount: summary.departments.length
+      }));
+      const wsCategory = XLSX.utils.json_to_sheet(categoryRows);
+      XLSX.utils.book_append_sheet(wb, wsCategory, 'CategorySummary');
+
+      // Summary
+      const wsSum = XLSX.utils.json_to_sheet([{
+        TotalBuildingArea: results.TotalBuildingArea,
+        TotalNetArea: results.TotalNetArea,
+        TotalDeptGrossArea: results.TotalDeptGrossArea,
+        TotalBeds: results.TotalBeds,
+        DailyOutpatient: results.DailyOutpatient,
+        TotalEquipment: results.TotalEquipment
+      }]);
+      XLSX.utils.book_append_sheet(wb, wsSum, 'Summary');
+
+      // 生成文件名，包含当前日期
+      const today = new Date();
+      const dateStr = today.getFullYear() + '-' + 
+                     String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                     String(today.getDate()).padStart(2, '0');
+      const fileName = `hospital_plan_export_${dateStr}.xlsx`;
+
+      XLSX.writeFile(wb, fileName);
+    }
+
+    // 示例调整
+    function adjustExample() {
+      config = config.map(c => ({...c, OutpatientShare_Hi: c.OutpatientShare_Hi * 0.9}));
+      renderDeptTable();
+    }
+
+    // 重置默认值
+    function resetDefaults() {
+      document.getElementById('DiagnosisBedRatio').value = 3.0;
+      document.getElementById('NonWardBedsRatio').value = 0.05;
+      document.getElementById('BedsPerWard').value = 2;
+      document.getElementById('OutpatientCheckRatio').value = 0.15;
+      document.getElementById('AvgDailyChecks_PerDevice_Out').value = 20;
+      document.getElementById('InpatientCheckRatio').value = 0.05;
+      document.getElementById('AvgDailyChecks_PerDevice_In').value = 10;
+      document.getElementById('OR_BedsPerOR').value = 50;
+      document.getElementById('TrafficCoeff_Default').value = 0.20;
+      document.getElementById('WallCoeff_Default').value = 0.10;
+      document.getElementById('AuxRoomDefaultArea').value = 10;
+      document.getElementById('PublicCoeff').value = 0.30;
+    }
+
+    // 部署说明模态框
+    function showDeploymentModal() {
+      const modal = document.getElementById('deploymentModal');
+      const modalContent = document.getElementById('modalContent');
+      
+      modal.classList.remove('hidden');
+      // 添加动画效果
+      setTimeout(() => {
+        modalContent.classList.remove('scale-95', 'opacity-0');
+        modalContent.classList.add('scale-100', 'opacity-100');
+      }, 10);
+    }
+
+    function closeDeploymentModal() {
+      const modal = document.getElementById('deploymentModal');
+      const modalContent = document.getElementById('modalContent');
+      
+      // 添加动画效果
+      modalContent.classList.remove('scale-100', 'opacity-100');
+      modalContent.classList.add('scale-95', 'opacity-0');
+      
+      setTimeout(() => {
+        modal.classList.add('hidden');
+      }, 300);
+    }
+
+    // 初始化
+    document.addEventListener('DOMContentLoaded', function() {
+      // 更新医院等级选项
+      updateLevels();
+      
+      // 渲染科室表格
+      renderDeptTable();
+
+      // 绑定事件
+      document.getElementById('addDept').addEventListener('click', addDept);
+      document.getElementById('adjustExample').addEventListener('click', adjustExample);
+      document.getElementById('calculateBtn').addEventListener('click', calculate);
+      document.getElementById('exportExcelBtn').addEventListener('click', exportExcel);
+      document.getElementById('deploymentBtn').addEventListener('click', showDeploymentModal);
+      document.getElementById('closeModal').addEventListener('click', closeDeploymentModal);
+      document.getElementById('confirmModal').addEventListener('click', closeDeploymentModal);
+      document.getElementById('resetDefaults').addEventListener('click', resetDefaults);
+
+      // 尝试加载PDF（如果URL可访问）
+      const pdfUrl = '/mnt/data/000000_20210723_0C_CN_0.pdf';
+      const pdfPlaceholder = document.getElementById('pdfPlaceholder');
+      
+      // 这里我们不实际加载PDF，因为路径可能不可访问
+      // 而是显示一个占位符
+      pdfPlaceholder.innerHTML = `
+        <div class="w-full h-full flex items-center justify-center bg-gray-100 text-gray-500">
+          <div class="text-center">
+            <i class="fa fa-file-pdf-o text-4xl mb-2"></i>
+            <p>专利PDF预览区域</p>
+            <p class="text-xs mt-1">本地路径: ${pdfUrl}</p>
+            <p class="text-xs mt-2 text-gray-400">提示: 在实际部署时，请替换为可访问的PDF URL</p>
+          </div>
+        </div>
+      `;
+
+      // 添加键盘事件监听
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          closeDeploymentModal();
+        }
+      });
+    });
+  </script>
+</body>
+</html>
