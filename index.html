@@ -64,7 +64,7 @@
     <header class="mb-6 bg-gradient-blue rounded-lg shadow-lg p-4 text-white">
       <div class="flex flex-col md:flex-row justify-between items-center">
         <div>
-          <h1 class="text-2xl md:text-3xl font-bold text-shadow">医院功能规划与建筑面积自动计算器</h1>
+          <h1 class="text-2xl md:text-3xl font-bold text-shadow">医院功能规划“最小有效建筑面积”计算器</h1>
           <p class="text-sm text-blue-100 mt-1">基于专利说明的自动化方法，提供精准的医院规划计算</p>
         </div>
         <div class="mt-4 md:mt-0">
@@ -848,8 +848,8 @@
       // 生成文件名，包含当前日期
       const today = new Date();
       const dateStr = today.getFullYear() + '-' + 
-                     String(today.getMonth() + 1).padStart(2, '0') + '-' + 
-                     String(today.getDate()).padStart(2, '0');
+                      String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                      String(today.getDate()).padStart(2, '0');
       const fileName = `hospital_plan_export_${dateStr}.xlsx`;
 
       XLSX.writeFile(wb, fileName);
